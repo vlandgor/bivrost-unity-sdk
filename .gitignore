@@ -1,0 +1,20 @@
+# Test project
+bivrost-unity-package~/
+
+# Unity generated
+*.meta
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vs/
+*.sln
+*.csproj
+*.user
+
+# Build
+[Bb]uild/
+[Oo]bj/

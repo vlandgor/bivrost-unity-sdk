@@ -1,0 +1,11 @@
+{
+  "name": "com.bivrost.sdk",
+  "version": "0.1.0",
+  "displayName": "Bivrost",
+  "description": "SDK for connecting VR training applications to the BIVROST platform",
+  "unity": "6000.5",
+  "author": {
+    "name": "Vlad",
+    "url": "https://github.com/vlandgor/bivrost-unity-sdk"
+  }
+}
