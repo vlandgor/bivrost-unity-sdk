@@ -27,6 +27,7 @@ namespace Bivrost
         public BivrostConfig Config { get; private set; }
         public bool IsConnected => State == ConnectionState.Connected;
 
+        private SocketIOManager _socketIO;
         private float _heartbeatTimer;
 
         private void Awake()
@@ -62,15 +63,10 @@ namespace Bivrost
 
             try
             {
-                // TODO: Initialize SocketIOManager and connect
-                // TODO: Fetch LiveKit token from server
-                // TODO: Initialize LiveKitManager and connect
-
-                // Simulated connection for now
-                await Task.Delay(100);
+                _socketIO = new SocketIOManager();
+                await _socketIO.Connect(Config, Events);
 
                 SetState(ConnectionState.Connected);
-                Events.RaiseConnected();
                 Debug.Log("[BIVROST] Connected successfully.");
             }
             catch (Exception ex)
@@ -81,22 +77,25 @@ namespace Bivrost
             }
         }
 
-        public void Disconnect()
+        public async void Disconnect()
         {
             if (State == ConnectionState.Disconnected)
                 return;
 
             Debug.Log("[BIVROST] Disconnecting...");
 
-            // TODO: Disconnect SocketIOManager
-            // TODO: Disconnect LiveKitManager
+            if (_socketIO != null)
+            {
+                await _socketIO.Disconnect();
+                _socketIO = null;
+            }
 
             SetState(ConnectionState.Disconnected);
             Events.RaiseDisconnected("manual");
             Debug.Log("[BIVROST] Disconnected.");
         }
 
-        public void SetStatus(StudentStatus status)
+        public async void SetStatus(StudentStatus status)
         {
             if (!IsConnected)
             {
@@ -104,11 +103,20 @@ namespace Bivrost
                 return;
             }
 
-            Debug.Log($"[BIVROST] Status: {status}");
-            // TODO: Send status via SocketIOManager
+            var statusString = status switch
+            {
+                StudentStatus.Idle => "idle",
+                StudentStatus.Loading => "loading",
+                StudentStatus.InProgress => "in-progress",
+                StudentStatus.Paused => "paused",
+                StudentStatus.Completed => "completed",
+                _ => status.ToString().ToLower()
+            };
+
+            await _socketIO.SendStatus(statusString);
         }
 
-        public void SetStatus(string customStatus)
+        public async void SetStatus(string customStatus)
         {
             if (!IsConnected)
             {
@@ -116,16 +124,14 @@ namespace Bivrost
                 return;
             }
 
-            Debug.Log($"[BIVROST] Status: {customStatus}");
-            // TODO: Send custom status via SocketIOManager
+            await _socketIO.SendStatus(customStatus);
         }
 
         private void Update()
         {
-            if (State != ConnectionState.Connected)
+            if (State != ConnectionState.Connected || _socketIO == null)
                 return;
 
-            // Heartbeat
             _heartbeatTimer += Time.deltaTime;
             if (_heartbeatTimer >= (Config.HeartbeatIntervalMs / 1000f))
             {
@@ -134,9 +140,9 @@ namespace Bivrost
             }
         }
 
-        private void SendHeartbeat()
+        private async void SendHeartbeat()
         {
-            // TODO: Send heartbeat via SocketIOManager
+            await _socketIO.SendHeartbeat();
         }
 
         private void SetState(ConnectionState newState)
