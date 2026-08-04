@@ -49,13 +49,19 @@ namespace Bivrost
 
             if (connect.IsError)
             {
-                Debug.LogError($"[BIVROST] LiveKit connection failed");
-                UnityMainThread.Enqueue(() => _events.RaiseError($"LiveKit: error"));
+                Debug.LogError("[BIVROST] LiveKit connection failed");
+                UnityMainThread.Enqueue(() => _events.RaiseError("LiveKit connection failed"));
                 yield break;
             }
 
             IsConnected = true;
             Debug.Log($"[BIVROST] LiveKit connected to room: {_room.Name}");
+
+            // Listen for data messages (voice channel notifications from instructor)
+            _room.DataReceived += OnDataReceived;
+
+            // Auto-publish microphone so instructor can hear the student
+            _coroutineRunner.StartCoroutine(PublishMicCoroutine());
         }
 
         public void PublishCamera(Camera camera, int width = 1280, int height = 720, int framerate = 15, int bitrate = 512000)
@@ -168,6 +174,40 @@ namespace Bivrost
                 UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelEnded());
             }
         }
+        
+        private void OnDataReceived(byte[] data, Participant participant, DataPacketKind kind, string topic)
+        {
+            try
+            {
+                var json = System.Text.Encoding.UTF8.GetString(data);
+                var message = JsonUtility.FromJson<VoiceChannelMessage>(json);
+
+                if (message.type == "voice-channel")
+                {
+                    if (message.action == "start")
+                    {
+                        Debug.Log("[BIVROST] Instructor opened voice channel.");
+                        UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelStarted());
+                    }
+                    else if (message.action == "stop")
+                    {
+                        Debug.Log("[BIVROST] Instructor closed voice channel.");
+                        UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelEnded());
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[BIVROST] Failed to parse data message: {ex.Message}");
+            }
+        }
+
+        [System.Serializable]
+        private class VoiceChannelMessage
+        {
+            public string type;
+            public string action;
+        }
 
         public void Disconnect()
         {
@@ -206,6 +246,7 @@ namespace Bivrost
             {
                 _room.TrackSubscribed -= OnTrackSubscribed;
                 _room.TrackUnsubscribed -= OnTrackUnsubscribed;
+                _room.DataReceived -= OnDataReceived;
                 _room.Disconnect();
                 _room = null;
             }
