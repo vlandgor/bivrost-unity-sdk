@@ -18,6 +18,7 @@ namespace Bivrost
                     _instance = go.AddComponent<BivrostManager>();
                     DontDestroyOnLoad(go);
                 }
+
                 return _instance;
             }
         }
@@ -28,6 +29,7 @@ namespace Bivrost
         public bool IsConnected => State == ConnectionState.Connected;
 
         private SocketIOManager _socketIO;
+        private LiveKitManager _liveKit;
         private float _heartbeatTimer;
 
         private void Awake()
@@ -37,6 +39,7 @@ namespace Bivrost
                 Destroy(gameObject);
                 return;
             }
+
             _instance = this;
             DontDestroyOnLoad(gameObject);
         }
@@ -59,12 +62,15 @@ namespace Bivrost
                 throw new ArgumentException("StudentName is required");
 
             SetState(ConnectionState.Connecting);
-            Debug.Log($"[BIVROST] Connecting to {config.ServerUrl} | Session: {config.SessionId} | Student: {config.StudentName}");
+            Debug.Log(
+                $"[BIVROST] Connecting to {config.ServerUrl} | Session: {config.SessionId} | Student: {config.StudentName}");
 
             try
             {
                 _socketIO = new SocketIOManager();
                 await _socketIO.Connect(Config, Events);
+
+                _liveKit = new LiveKitManager(this);
 
                 SetState(ConnectionState.Connected);
                 Debug.Log("[BIVROST] Connected successfully.");
@@ -88,6 +94,12 @@ namespace Bivrost
             {
                 await _socketIO.Disconnect();
                 _socketIO = null;
+            }
+            
+            if (_liveKit != null)
+            {
+                _liveKit.Disconnect();
+                _liveKit = null;
             }
 
             SetState(ConnectionState.Disconnected);
@@ -125,6 +137,34 @@ namespace Bivrost
             }
 
             await _socketIO.SendStatus(customStatus);
+        }
+
+        public void PublishCamera(Camera camera, int width = 1280, int height = 720, int framerate = 15)
+        {
+            if (_liveKit == null || !_liveKit.IsConnected)
+            {
+                Debug.LogWarning("[BIVROST] LiveKit not connected. Call ConnectLiveKit first.");
+                return;
+            }
+
+            _liveKit.PublishCamera(camera, width, height, framerate);
+        }
+
+        public void PublishMicrophone()
+        {
+            if (_liveKit == null || !_liveKit.IsConnected)
+            {
+                Debug.LogWarning("[BIVROST] LiveKit not connected.");
+                return;
+            }
+
+            _liveKit.PublishMicrophone();
+        }
+
+        public void ConnectLiveKit(string url, string token)
+        {
+            _liveKit = new LiveKitManager(this);
+            _liveKit.Connect(url, token, Config, Events);
         }
 
         private void Update()
