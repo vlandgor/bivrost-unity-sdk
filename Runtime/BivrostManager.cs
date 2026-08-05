@@ -4,6 +4,8 @@ using UnityEngine;
 
 namespace Bivrost
 {
+    public enum BivrostEnvironment { Production, Development }
+    
     public class BivrostManager : MonoBehaviour
     {
         private static BivrostManager _instance;
@@ -22,6 +24,8 @@ namespace Bivrost
                 return _instance;
             }
         }
+        
+        [SerializeField] private string projectId;
 
         public BivrostEvents Events { get; } = new BivrostEvents();
         public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
@@ -31,6 +35,19 @@ namespace Bivrost
         private SocketIOManager _socketIO;
         private LiveKitManager _liveKit;
         private float _heartbeatTimer;
+        
+#if BIVROST_INTERNAL
+    [SerializeField] private BivrostEnvironment environment = BivrostEnvironment.Development;
+#else
+        private const BivrostEnvironment environment = BivrostEnvironment.Production;
+#endif
+
+        public string ServerUrl => environment switch
+        {
+            BivrostEnvironment.Development => "http://localhost:3001",
+            BivrostEnvironment.Production  => "https://bivrost-web-platform-production.up.railway.app",
+            _ => throw new System.ArgumentOutOfRangeException()
+        };
 
         private void Awake()
         {

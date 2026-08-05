@@ -79,6 +79,7 @@ namespace Bivrost
         {
             // Create a duplicate camera for streaming — don't touch the original
             var streamObj = new GameObject("BivrostStreamCamera");
+            streamObj.transform.SetParent(_coroutineRunner.transform);
             _streamCamera = streamObj.AddComponent<Camera>();
             _streamCamera.CopyFrom(camera);
 
@@ -132,6 +133,7 @@ namespace Bivrost
             }
 
             _audioObject = new GameObject("BivrostAudioSource");
+            _audioObject.transform.SetParent(_coroutineRunner.transform);
             _micSource = new MicrophoneSource(Microphone.devices[0], _audioObject);
             _audioTrack = LocalAudioTrack.CreateAudioTrack("bivrost-audio", _micSource, _room);
 
