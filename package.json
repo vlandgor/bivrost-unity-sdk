@@ -7,8 +7,5 @@
   "author": {
     "name": "Vlad",
     "url": "https://github.com/vlandgor/bivrost-unity-sdk"
-  },
-  "dependencies": {
-    "io.livekit.livekit-sdk": "2.0.0"
   }
 }
