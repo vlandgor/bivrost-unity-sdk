@@ -7,11 +7,10 @@ using RoomOptions = LiveKit.RoomOptions;
 
 namespace Bivrost
 {
-    internal class LiveKitManager
+    internal class LiveKitManager : IRealtimeModule
     {
         private Room _room;
         private MonoBehaviour _coroutineRunner;
-        private BivrostConfig _config;
         private BivrostEvents _events;
 
         private TextureVideoSource _videoSource;
@@ -30,9 +29,14 @@ namespace Bivrost
             _coroutineRunner = coroutineRunner;
         }
 
-        public void Connect(string url, string token, BivrostConfig config, BivrostEvents events)
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void Register()
         {
-            _config = config;
+            RealtimeModuleRegistry.Register(manager => new LiveKitManager(manager));
+        }
+
+        public void Connect(string url, string token, BivrostEvents events)
+        {
             _events = events;
             _room = new Room();
 
@@ -77,17 +81,23 @@ namespace Bivrost
 
         private IEnumerator PublishCameraCoroutine(Camera camera, int width, int height, int framerate, int bitrate)
         {
-            // Create a duplicate camera for streaming — don't touch the original
+            // Re-publishing without disconnecting first would otherwise leak the previous
+            // stream camera / RenderTexture / video track.
+            CleanupVideoPublish();
+
             var streamObj = new GameObject("BivrostStreamCamera");
             streamObj.transform.SetParent(_coroutineRunner.transform);
             _streamCamera = streamObj.AddComponent<Camera>();
             _streamCamera.CopyFrom(camera);
 
+            // Output is a flat RenderTexture, not a VR eye — make sure the stream camera
+            // doesn't inherit stereo rendering behavior if `camera` is a VR eye camera.
+            _streamCamera.stereoTargetEye = StereoTargetEyeMask.None;
+
             _renderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
             _renderTexture.Create();
             _streamCamera.targetTexture = _renderTexture;
 
-            // Create video source from RenderTexture
             _videoSource = new TextureVideoSource(_renderTexture);
             _videoTrack = LocalVideoTrack.CreateVideoTrack("bivrost-video", _videoSource, _room);
 
@@ -157,14 +167,19 @@ namespace Bivrost
 
         private void OnTrackSubscribed(IRemoteTrack track, RemoteTrackPublication publication, RemoteParticipant participant)
         {
-            // Instructor audio (voice channel)
             if (track is RemoteAudioTrack audioTrack)
             {
                 Debug.Log($"[BIVROST] Received audio from instructor: {participant.Identity}");
-                var audObj = new GameObject($"InstructorAudio_{participant.Identity}");
-                var source = audObj.AddComponent<AudioSource>();
-                var stream = new AudioStream(audioTrack, source);
-                UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelStarted());
+
+                // OnTrackSubscribed fires off the main thread — every Unity API call here
+                // (GameObject / AddComponent / AudioStream) must be deferred, not just the event.
+                UnityMainThread.Enqueue(() =>
+                {
+                    var audObj = new GameObject($"InstructorAudio_{participant.Identity}");
+                    var source = audObj.AddComponent<AudioSource>();
+                    var stream = new AudioStream(audioTrack, source);
+                    _events.RaiseVoiceChannelStarted();
+                });
             }
         }
 
@@ -176,7 +191,7 @@ namespace Bivrost
                 UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelEnded());
             }
         }
-        
+
         private void OnDataReceived(byte[] data, Participant participant, DataPacketKind kind, string topic)
         {
             try
@@ -211,7 +226,7 @@ namespace Bivrost
             public string action;
         }
 
-        public void Disconnect()
+        private void CleanupVideoPublish()
         {
             if (_videoSource != null)
             {
@@ -219,12 +234,6 @@ namespace Bivrost
                 _videoSource = null;
             }
 
-            if (_micSource != null)
-            {
-                _micSource.Stop();
-                _micSource = null;
-            }
-            
             if (_streamCamera != null)
             {
                 UnityEngine.Object.Destroy(_streamCamera.gameObject);
@@ -236,6 +245,17 @@ namespace Bivrost
                 _renderTexture.Release();
                 UnityEngine.Object.Destroy(_renderTexture);
                 _renderTexture = null;
+            }
+        }
+
+        public void Disconnect()
+        {
+            CleanupVideoPublish();
+
+            if (_micSource != null)
+            {
+                _micSource.Stop();
+                _micSource = null;
             }
 
             if (_audioObject != null)

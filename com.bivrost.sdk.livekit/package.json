@@ -1,0 +1,14 @@
+{
+  "name": "com.bivrost.sdk.livekit",
+  "version": "0.1.0",
+  "displayName": "Bivrost Realtime (LiveKit)",
+  "description": "Real-time audio/video module for Bivrost, built on LiveKit. Requires com.bivrost.sdk to already be installed.",
+  "unity": "6000.5",
+  "author": {
+    "name": "Vlad",
+    "url": "https://github.com/vlandgor/bivrost-unity-sdk"
+  },
+  "dependencies": {
+    "io.livekit.livekit-sdk": "2.0.0"
+  }
+}

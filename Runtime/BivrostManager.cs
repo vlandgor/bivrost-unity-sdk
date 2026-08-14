@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Bivrost
 {
     public enum BivrostEnvironment { Production, Development }
-    
+
     public class BivrostManager : MonoBehaviour
     {
         private static BivrostManager _instance;
@@ -24,7 +24,7 @@ namespace Bivrost
                 return _instance;
             }
         }
-        
+
         [SerializeField] private string projectId;
 
         public BivrostEvents Events { get; } = new BivrostEvents();
@@ -33,11 +33,11 @@ namespace Bivrost
         public bool IsConnected => State == ConnectionState.Connected;
 
         private SocketIOManager _socketIO;
-        private LiveKitManager _liveKit;
+        private IRealtimeModule _liveKit;
         private float _heartbeatTimer;
-        
+
 #if BIVROST_INTERNAL
-    [SerializeField] private BivrostEnvironment environment = BivrostEnvironment.Development;
+        [SerializeField] private BivrostEnvironment environment = BivrostEnvironment.Development;
 #else
         private const BivrostEnvironment environment = BivrostEnvironment.Production;
 #endif
@@ -59,6 +59,11 @@ namespace Bivrost
 
             _instance = this;
             DontDestroyOnLoad(gameObject);
+
+            if (!TryGetComponent<UnityMainThread>(out _))
+            {
+                gameObject.AddComponent<UnityMainThread>();
+            }
         }
 
         public async Task Connect(BivrostConfig config)
@@ -87,8 +92,8 @@ namespace Bivrost
                 _socketIO = new SocketIOManager();
                 await _socketIO.Connect(Config, Events);
 
-                _liveKit = new LiveKitManager(this);
-
+                // LiveKit is a separate connection — call ConnectLiveKit(url, token) once you
+                // have room credentials (e.g. from a "session:state" socket message).
                 SetState(ConnectionState.Connected);
                 Debug.Log("[BIVROST] Connected successfully.");
             }
@@ -112,7 +117,7 @@ namespace Bivrost
                 await _socketIO.Disconnect();
                 _socketIO = null;
             }
-            
+
             if (_liveKit != null)
             {
                 _liveKit.Disconnect();
@@ -156,7 +161,7 @@ namespace Bivrost
             await _socketIO.SendStatus(customStatus);
         }
 
-        public void PublishCamera(Camera camera, int width = 1280, int height = 720, int framerate = 15)
+        public void PublishCamera(Camera camera, int width = 1280, int height = 720, int framerate = 15, int bitrate = 512000)
         {
             if (_liveKit == null || !_liveKit.IsConnected)
             {
@@ -164,7 +169,7 @@ namespace Bivrost
                 return;
             }
 
-            _liveKit.PublishCamera(camera, width, height, framerate);
+            _liveKit.PublishCamera(camera, width, height, framerate, bitrate);
         }
 
         public void PublishMicrophone()
@@ -180,8 +185,20 @@ namespace Bivrost
 
         public void ConnectLiveKit(string url, string token)
         {
-            _liveKit = new LiveKitManager(this);
-            _liveKit.Connect(url, token, Config, Events);
+            _liveKit = CreateRealtimeModule();
+            _liveKit?.Connect(url, token, Events);
+        }
+
+        private IRealtimeModule CreateRealtimeModule()
+        {
+            if (!RealtimeModuleRegistry.IsRegistered)
+            {
+                Debug.LogError("[BIVROST] Realtime module (LiveKit) isn't installed. " +
+                                "Run Bivrost > Install Realtime Module (LiveKit).");
+                return null;
+            }
+
+            return RealtimeModuleRegistry.Create(this);
         }
 
         private void Update()

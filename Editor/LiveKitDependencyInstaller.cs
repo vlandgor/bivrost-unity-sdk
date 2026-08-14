@@ -7,36 +7,22 @@ using UnityEngine;
 
 namespace Editor
 {
-    /// <summary>
-    /// Ensures the LiveKit Unity SDK is resolvable via UPM by patching the
-    /// consuming project's Packages/manifest.json with the OpenUPM scoped
-    /// registry + a pinned version, if it isn't already configured.
-    ///
-    /// Keep PackageVersion in sync with the "io.livekit.livekit-sdk" entry
-    /// in Bivrost's own package.json.
-    /// </summary>
-    [InitializeOnLoad]
     internal static class LiveKitDependencyInstaller
     {
         private const string RegistryName = "package.openupm.com";
         private const string RegistryUrl = "https://package.openupm.com";
         private const string Scope = "io.livekit";
-        private const string PackageId = "io.livekit.livekit-sdk";
-        private const string PackageVersion = "2.0.0";
+        private const string ExtensionPackageId = "com.bivrost.sdk.livekit";
+        private const string ExtensionGitUrl =
+            "https://github.com/vlandgor/bivrost-unity-sdk.git?path=/com.bivrost.sdk.livekit";
 
         private static string ManifestPath =>
             Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
 
-        static LiveKitDependencyInstaller()
-        {
-            // Delay so we don't fight Unity during the initial domain load.
-            EditorApplication.delayCall += () => EnsureDependency(force: false);
-        }
+        [MenuItem("Bivrost/Install Realtime Module (LiveKit)")]
+        private static void Install() => Install(force: true);
 
-        [MenuItem("Bivrost/Verify LiveKit Dependency")]
-        private static void EnsureDependencyMenuItem() => EnsureDependency(force: true);
-
-        private static void EnsureDependency(bool force)
+        private static void Install(bool force)
         {
             try
             {
@@ -55,31 +41,30 @@ namespace Editor
                     changed = true;
                 }
 
-                if (!manifest.Contains("\"" + PackageId + "\""))
+                if (!manifest.Contains("\"" + ExtensionPackageId + "\""))
                 {
-                    manifest = AddDependency(manifest);
+                    manifest = AddExtensionDependency(manifest);
                     changed = true;
                 }
 
                 if (changed)
                 {
                     File.WriteAllText(ManifestPath, manifest);
-                    Debug.Log("[Bivrost] Added LiveKit SDK (" + PackageVersion +
-                              ") + OpenUPM registry to manifest.json. Resolving packages...");
+                    Debug.Log("[Bivrost] Installing realtime module (LiveKit)... Unity will reload after resolving.");
                     Client.Resolve();
                 }
                 else if (force)
                 {
-                    Debug.Log("[Bivrost] LiveKit dependency already configured. Nothing to do.");
+                    Debug.Log("[Bivrost] Realtime module already installed. Nothing to do.");
                 }
             }
             catch (Exception e)
             {
-                Debug.LogError("[Bivrost] Could not auto-configure the LiveKit dependency (" +
-                    e.Message + "). Add it manually to Packages/manifest.json:\n" +
+                Debug.LogError("[Bivrost] Could not auto-install the realtime module (" +
+                    e.Message + "). Add these to Packages/manifest.json manually:\n" +
                     "  scopedRegistries: { name: \"" + RegistryName + "\", url: \"" + RegistryUrl +
                     "\", scopes: [\"" + Scope + "\"] }\n" +
-                    "  dependencies: \"" + PackageId + "\": \"" + PackageVersion + "\"");
+                    "  dependencies: \"" + ExtensionPackageId + "\": \"" + ExtensionGitUrl + "\"");
             }
         }
 
@@ -95,22 +80,19 @@ namespace Editor
             int scopedRegistriesIndex = manifest.IndexOf("\"scopedRegistries\"", StringComparison.Ordinal);
             if (scopedRegistriesIndex >= 0)
             {
-                // scopedRegistries already exists (other registries present) —
-                // insert ours as the first entry in that array.
                 int arrayStart = manifest.IndexOf('[', scopedRegistriesIndex);
                 return manifest.Insert(arrayStart + 1, "\n" + registryObject);
             }
 
-            // No scopedRegistries key yet — add it as a new top-level entry.
             string registryBlock =
                 "  \"scopedRegistries\": [\n" + registryObject.TrimEnd(',', '\n') + "\n  ],\n";
             int insertAt = manifest.IndexOf('{') + 1;
             return manifest.Insert(insertAt, "\n" + registryBlock);
         }
 
-        private static string AddDependency(string manifest)
+        private static string AddExtensionDependency(string manifest)
         {
-            string entry = "    \"" + PackageId + "\": \"" + PackageVersion + "\",\n";
+            string entry = "    \"" + ExtensionPackageId + "\": \"" + ExtensionGitUrl + "\",\n";
             int depsIndex = manifest.IndexOf("\"dependencies\"", StringComparison.Ordinal);
             if (depsIndex < 0)
             {

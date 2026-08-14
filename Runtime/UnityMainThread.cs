@@ -9,13 +9,9 @@ namespace Bivrost
         private static UnityMainThread _instance;
         private static readonly ConcurrentQueue<Action> _actions = new ConcurrentQueue<Action>();
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Initialize()
+        private void Awake()
         {
-            if (_instance != null) return;
-            var go = new GameObject("BivrostMainThread");
-            _instance = go.AddComponent<UnityMainThread>();
-            DontDestroyOnLoad(go);
+            _instance = this;
         }
 
         public static void Enqueue(Action action)
