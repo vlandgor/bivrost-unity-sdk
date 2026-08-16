@@ -54,7 +54,7 @@ namespace Bivrost
             if (connect.IsError)
             {
                 Debug.LogError("[BIVROST] LiveKit connection failed");
-                UnityMainThread.Enqueue(() => _events.RaiseError("LiveKit connection failed"));
+                MainThreadDispatcher.Enqueue(() => _events.RaiseError("LiveKit connection failed"));
                 yield break;
             }
 
@@ -173,7 +173,7 @@ namespace Bivrost
 
                 // OnTrackSubscribed fires off the main thread — every Unity API call here
                 // (GameObject / AddComponent / AudioStream) must be deferred, not just the event.
-                UnityMainThread.Enqueue(() =>
+                MainThreadDispatcher.Enqueue(() =>
                 {
                     var audObj = new GameObject($"InstructorAudio_{participant.Identity}");
                     var source = audObj.AddComponent<AudioSource>();
@@ -188,7 +188,7 @@ namespace Bivrost
             if (track is RemoteAudioTrack)
             {
                 Debug.Log($"[BIVROST] Instructor audio ended: {participant.Identity}");
-                UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelEnded());
+                MainThreadDispatcher.Enqueue(() => _events.RaiseVoiceChannelEnded());
             }
         }
 
@@ -204,12 +204,12 @@ namespace Bivrost
                     if (message.action == "start")
                     {
                         Debug.Log("[BIVROST] Instructor opened voice channel.");
-                        UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelStarted());
+                        MainThreadDispatcher.Enqueue(() => _events.RaiseVoiceChannelStarted());
                     }
                     else if (message.action == "stop")
                     {
                         Debug.Log("[BIVROST] Instructor closed voice channel.");
-                        UnityMainThread.Enqueue(() => _events.RaiseVoiceChannelEnded());
+                        MainThreadDispatcher.Enqueue(() => _events.RaiseVoiceChannelEnded());
                     }
                 }
             }

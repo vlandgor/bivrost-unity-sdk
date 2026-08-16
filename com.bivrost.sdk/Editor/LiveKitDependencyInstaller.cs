@@ -13,16 +13,11 @@ namespace Editor
         private const string RegistryUrl = "https://package.openupm.com";
         private const string Scope = "io.livekit";
         private const string ExtensionPackageId = "com.bivrost.sdk.livekit";
-        private const string ExtensionGitUrl =
-            "https://github.com/vlandgor/bivrost-unity-sdk.git?path=/com.bivrost.sdk.livekit";
+        private const string ExtensionGitUrl = "https://github.com/vlandgor/bivrost-unity-sdk.git?path=/com.bivrost.sdk.livekit";
 
-        private static string ManifestPath =>
-            Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
+        private static string ManifestPath => Path.Combine(Application.dataPath, "..", "Packages", "manifest.json");
 
-        [MenuItem("Bivrost/Install Realtime Module (LiveKit)")]
-        private static void Install() => Install(force: true);
-
-        private static void Install(bool force)
+        internal static void Install(bool force = true)
         {
             try
             {

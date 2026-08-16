@@ -98,14 +98,14 @@ namespace Bivrost
             {
                 _isConnected = true;
                 Debug.Log("[BIVROST] Socket.IO connected.");
-                UnityMainThread.Enqueue(() => _events.RaiseConnected());
+                MainThreadDispatcher.Enqueue(() => _events.RaiseConnected());
             };
 
             _socket.OnDisconnected += (sender, reason) =>
             {
                 _isConnected = false;
                 Debug.Log($"[BIVROST] Socket.IO disconnected: {reason}");
-                UnityMainThread.Enqueue(() => _events.RaiseDisconnected(reason));
+                MainThreadDispatcher.Enqueue(() => _events.RaiseDisconnected(reason));
             };
 
             _socket.OnReconnectAttempt += (sender, attempt) =>
@@ -116,7 +116,7 @@ namespace Bivrost
             _socket.OnReconnectFailed += (sender, args) =>
             {
                 Debug.LogError("[BIVROST] Reconnection failed.");
-                UnityMainThread.Enqueue(() => _events.RaiseError("Reconnection failed"));
+                MainThreadDispatcher.Enqueue(() => _events.RaiseError("Reconnection failed"));
             };
 
             // Server sends session state on join
@@ -130,14 +130,14 @@ namespace Bivrost
             _socket.On("session:start", response =>
             {
                 Debug.Log("[BIVROST] Session started by instructor.");
-                UnityMainThread.Enqueue(() => _events.RaiseSessionStarted());
+                MainThreadDispatcher.Enqueue(() => _events.RaiseSessionStarted());
             });
 
             // Instructor ended the session
             _socket.On("session:end", response =>
             {
                 Debug.Log("[BIVROST] Session ended by instructor.");
-                UnityMainThread.Enqueue(() => _events.RaiseSessionEnded());
+                MainThreadDispatcher.Enqueue(() => _events.RaiseSessionEnded());
             });
 
             // Instructor command (future)
@@ -146,7 +146,7 @@ namespace Bivrost
                 var json = response.GetValue<JsonElement>();
                 var command = json.GetProperty("command").GetString();
                 Debug.Log($"[BIVROST] Instructor command: {command}");
-                UnityMainThread.Enqueue(() => _events.RaiseInstructorCommand(command));
+                MainThreadDispatcher.Enqueue(() => _events.RaiseInstructorCommand(command));
             });
 
             // Error from server
@@ -155,7 +155,7 @@ namespace Bivrost
                 var json = response.GetValue<JsonElement>();
                 var message = json.GetProperty("message").GetString();
                 Debug.LogError($"[BIVROST] Server error: {message}");
-                UnityMainThread.Enqueue(() => _events.RaiseError(message));
+                MainThreadDispatcher.Enqueue(() => _events.RaiseError(message));
             });
         }
     }

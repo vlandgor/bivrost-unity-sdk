@@ -1,3 +1,4 @@
 {
-	"name": "Bivrost.Editor"
+	"name": "Bivrost.Editor",
+	"references":[ "GUID:13b8ad552b35497489894b4325784e64" ]
 }

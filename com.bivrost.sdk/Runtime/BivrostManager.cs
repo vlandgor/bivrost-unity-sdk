@@ -25,22 +25,24 @@ namespace Bivrost
             }
         }
 
+#if BIVROST_INTERNAL
+        [SerializeField] private BivrostEnvironment environment = BivrostEnvironment.Development;
+#else
+        private const BivrostEnvironment environment = BivrostEnvironment.Production;
+#endif
+        
+        [Space]
         [SerializeField] private string projectId;
 
         public BivrostEvents Events { get; } = new BivrostEvents();
         public ConnectionState State { get; private set; } = ConnectionState.Disconnected;
         public BivrostConfig Config { get; private set; }
         public bool IsConnected => State == ConnectionState.Connected;
+        public static bool IsRealtimeModuleInstalled => RealtimeModuleRegistry.IsRegistered;
 
         private SocketIOManager _socketIO;
         private IRealtimeModule _liveKit;
         private float _heartbeatTimer;
-
-#if BIVROST_INTERNAL
-        [SerializeField] private BivrostEnvironment environment = BivrostEnvironment.Development;
-#else
-        private const BivrostEnvironment environment = BivrostEnvironment.Production;
-#endif
 
         public string ServerUrl => environment switch
         {
@@ -60,9 +62,9 @@ namespace Bivrost
             _instance = this;
             DontDestroyOnLoad(gameObject);
 
-            if (!TryGetComponent<UnityMainThread>(out _))
+            if (!TryGetComponent<MainThreadDispatcher>(out _))
             {
-                gameObject.AddComponent<UnityMainThread>();
+                gameObject.AddComponent<MainThreadDispatcher>();
             }
         }
 
