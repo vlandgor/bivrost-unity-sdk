@@ -162,6 +162,28 @@ namespace Bivrost
 
             await _socketIO.SendStatus(customStatus);
         }
+        
+        /// <summary>
+        /// Sends a student -> instructor action/notification, e.g. NotifyInstructor("objective_completed").
+        /// The key must match an action defined on the Bivrost web platform's Actions page
+        /// with direction "Student -> Instructor".
+        /// </summary>
+        public async void NotifyInstructor(string key, object payload = null)
+        {
+            if (!IsConnected)
+            {
+                Debug.LogWarning("[BIVROST] Cannot notify instructor while disconnected.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(key))
+            {
+                Debug.LogWarning("[BIVROST] NotifyInstructor called with an empty key.");
+                return;
+            }
+
+            await _socketIO.SendAction(key, payload);
+        }
 
         public void PublishCamera(Camera camera, int width = 1280, int height = 720, int framerate = 15, int bitrate = 512000)
         {

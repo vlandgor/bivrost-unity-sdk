@@ -92,6 +92,21 @@ namespace Bivrost
             Debug.Log($"[BIVROST] Sent status: {status}");
         }
 
+        /// <summary>Sends a student -> instructor action, e.g. "objective_completed".</summary>
+        public async Task SendAction(string key, object payload = null)
+        {
+            if (!_isConnected || _socket == null) return;
+
+            await _socket.EmitAsync("student:action", new
+            {
+                studentName = _config.StudentName,
+                key,
+                payload
+            });
+
+            Debug.Log($"[BIVROST] Sent action: {key}");
+        }
+
         private void RegisterEvents()
         {
             _socket.OnConnected += (sender, args) =>
@@ -140,13 +155,19 @@ namespace Bivrost
                 MainThreadDispatcher.Enqueue(() => _events.RaiseSessionEnded());
             });
 
-            // Instructor command (future)
-            _socket.On("instructor:command", response =>
+            // Instructor -> Student action, e.g. { "key": "turn_off_light", "payload": {...} }
+            _socket.On("instructor:action", response =>
             {
                 var json = response.GetValue<JsonElement>();
-                var command = json.GetProperty("command").GetString();
-                Debug.Log($"[BIVROST] Instructor command: {command}");
-                MainThreadDispatcher.Enqueue(() => _events.RaiseInstructorCommand(command));
+                var key = json.GetProperty("key").GetString();
+
+                string payloadJson = null;
+                if (json.TryGetProperty("payload", out var payloadElement))
+                    payloadJson = payloadElement.GetRawText();
+
+                Debug.Log($"[BIVROST] Action received: {key}");
+                var action = new BivrostAction(key, payloadJson);
+                MainThreadDispatcher.Enqueue(() => _events.RaiseActionReceived(action));
             });
 
             // Error from server
